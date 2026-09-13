@@ -73,6 +73,8 @@ model User {
   comments       Comment[]
   projectUpdates ProjectUpdate[]
   ledgerEntries  PointsLedgerEntry[]
+  coursesTaught  Course[]
+  enrollments    Enrollment[]
 }
 
 enum ProjectStatus {
@@ -185,6 +187,41 @@ model ProjectUpdate {
   author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
 }
 
+// Any signed-in Mentor can open a course (this is the first real slice of
+// the "Teach" module) and sets its own price. A course marked
+// `isFoundational` is meant for genuinely introductory material (e.g.
+// "Vibe Coding 基礎") — its price is *suggested* at half of
+// WELCOME_BONUS_POINTS (src/lib/points.ts) so a brand-new user's signup
+// bonus naturally covers exactly two of them, with no separate "free
+// credits" field needed. The instructor can still override the price;
+// `isFoundational` only drives the suggested default and which course's
+// price the invite-course referral bonus (below) references.
+model Course {
+  id             String   @id @default(cuid())
+  title          String
+  description    String
+  pointsCost     Int
+  isFoundational Boolean  @default(false)
+  instructorId   String
+  createdAt      DateTime @default(now())
+
+  instructor  User         @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
+}
+
+model Enrollment {
+  id         String   @id @default(cuid())
+  courseId   String
+  userId     String
+  pointsPaid Int
+  enrolledAt DateTime @default(now())
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, userId])
+}
+
 // Points are append-only ledger entries (never a mutable balance column)
 // so every award/deduction stays auditable and concurrency-safe.
 enum LedgerReason {
@@ -200,6 +237,12 @@ enum LedgerReason {
   REFERRAL_SIGNUP
   REFERRAL_FIRST_TASK
   REFERRAL_FIRST_PROJECT
+  // Same staged-referral idea, for the invitee's first course enrollment.
+  REFERRAL_FIRST_COURSE
+  // Negative-amount entry: spending points to enroll in a course. This is
+  // the first "spend" reason in the ledger — everything before this was
+  // earn-only.
+  COURSE_ENROLLMENT
 }
 
 model PointsLedgerEntry {

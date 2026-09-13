@@ -15,6 +15,8 @@ const REASON_LABEL: Record<string, string> = {
   REFERRAL_SIGNUP: "邀請成功",
   REFERRAL_FIRST_TASK: "受邀者完成第一次任務",
   REFERRAL_FIRST_PROJECT: "受邀者完成第一個專案",
+  REFERRAL_FIRST_COURSE: "受邀者完成第一次報名課程",
+  COURSE_ENROLLMENT: "報名課程",
 };
 
 const REFERRAL_STAGE_LABEL: Record<string, string> = {

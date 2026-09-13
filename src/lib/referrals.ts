@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 
 import { getPrisma } from "@/lib/prisma";
 import { awardPoints } from "@/lib/points";
+import { getReferralCourseBonusAmount } from "@/lib/courses";
 
 // Rewards go to the inviter for the invitee's real activity, not for the
 // invite itself, so a batch of throwaway signups earns nothing on its own.
@@ -15,7 +16,7 @@ async function alreadyRewarded(
   prisma: PrismaClient,
   inviterId: string,
   inviteeId: string,
-  reason: "REFERRAL_SIGNUP" | "REFERRAL_FIRST_TASK" | "REFERRAL_FIRST_PROJECT",
+  reason: "REFERRAL_SIGNUP" | "REFERRAL_FIRST_TASK" | "REFERRAL_FIRST_PROJECT" | "REFERRAL_FIRST_COURSE",
 ) {
   const existing = await prisma.pointsLedgerEntry.findFirst({
     where: { userId: inviterId, reason, refType: "Referral", refId: inviteeId },
@@ -95,6 +96,29 @@ export async function checkFirstProjectReferral(inviteeId: string) {
     userId: invitee.referredById,
     amount: REFERRAL_POINTS.FIRST_PROJECT,
     reason: "REFERRAL_FIRST_PROJECT",
+    refType: "Referral",
+    refId: inviteeId,
+  });
+}
+
+/** Call after `inviteeId` successfully enrolls in a course. */
+export async function checkFirstCourseReferral(inviteeId: string) {
+  const prisma = await getPrisma();
+  const invitee = await prisma.user.findUnique({
+    where: { id: inviteeId },
+    select: { referredById: true },
+  });
+  if (!invitee?.referredById) return;
+  if (await alreadyRewarded(prisma, invitee.referredById, inviteeId, "REFERRAL_FIRST_COURSE")) return;
+
+  const enrollmentCount = await prisma.enrollment.count({ where: { userId: inviteeId } });
+  if (enrollmentCount < 1) return;
+
+  const bonus = await getReferralCourseBonusAmount();
+  await awardPoints({
+    userId: invitee.referredById,
+    amount: bonus,
+    reason: "REFERRAL_FIRST_COURSE",
     refType: "Referral",
     refId: inviteeId,
   });

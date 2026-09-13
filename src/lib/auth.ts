@@ -3,9 +3,7 @@ import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
 import { getPrisma } from "@/lib/prisma";
-import { awardPoints } from "@/lib/points";
-
-const WELCOME_BONUS_POINTS = 10;
+import { awardPoints, WELCOME_BONUS_POINTS } from "@/lib/points";
 
 // The Prisma client depends on the current request's D1 binding, so the
 // adapter (and therefore the whole options object) has to be built fresh
