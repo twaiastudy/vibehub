@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getAuthOptions } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { checkFirstProjectReferral } from "@/lib/referrals";
+import { checkStudyGroupCompletion } from "@/lib/study-groups";
 
 export async function POST(
   _request: Request,
@@ -33,6 +34,7 @@ export async function POST(
     select: { userId: true },
   });
   await Promise.all(owners.map((owner) => checkFirstProjectReferral(owner.userId)));
+  await checkStudyGroupCompletion(projectId);
 
   return NextResponse.json(project);
 }

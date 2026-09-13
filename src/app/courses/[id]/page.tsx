@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getAuthOptions } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { EnrollButton } from "./enroll-button";
+import { CourseCommentThread } from "./course-comment-thread";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,10 @@ export default async function CourseDetailPage({
     include: {
       instructor: true,
       enrollments: { include: { user: { select: { id: true, name: true } } } },
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: { author: { select: { id: true, name: true } } },
+      },
     },
   });
   if (!course) {
@@ -73,6 +78,12 @@ export default async function CourseDetailPage({
           ))}
         </ul>
       </section>
+
+      <CourseCommentThread
+        courseId={course.id}
+        comments={course.comments}
+        isSignedIn={Boolean(currentUserId)}
+      />
     </div>
   );
 }

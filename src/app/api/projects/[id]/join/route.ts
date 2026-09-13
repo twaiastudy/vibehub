@@ -24,6 +24,21 @@ export async function POST(
     ? (role as (typeof JOINABLE_ROLES)[number])
     : "DEVELOPER";
 
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { capacity: true, _count: { select: { members: true } } },
+  });
+  if (!project) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  const alreadyMember = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId: session.user.id } },
+  });
+  if (!alreadyMember && project.capacity !== null && project._count.members >= project.capacity) {
+    return NextResponse.json({ error: "這個讀書會已經額滿了" }, { status: 409 });
+  }
+
   const membership = await prisma.projectMember.upsert({
     where: { projectId_userId: { projectId, userId: session.user.id } },
     create: {

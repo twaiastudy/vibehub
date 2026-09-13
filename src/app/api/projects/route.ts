@@ -21,15 +21,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { title, description, tags, neededRoles, ownerExpertise, websiteUrl } =
-    (await request.json()) as {
-      title?: string;
-      description?: string;
-      tags?: string[];
-      neededRoles?: string[];
-      ownerExpertise?: string;
-      websiteUrl?: string;
-    };
+  const {
+    title,
+    description,
+    tags,
+    neededRoles,
+    ownerExpertise,
+    websiteUrl,
+    isStudyGroup,
+    capacity,
+  } = (await request.json()) as {
+    title?: string;
+    description?: string;
+    tags?: string[];
+    neededRoles?: string[];
+    ownerExpertise?: string;
+    websiteUrl?: string;
+    isStudyGroup?: boolean;
+    capacity?: number;
+  };
   if (!title || !description) {
     return NextResponse.json(
       { error: "title and description are required" },
@@ -41,6 +51,11 @@ export async function POST(request: Request) {
     ? neededRoles.filter((role) => (JOINABLE_ROLES as readonly string[]).includes(role))
     : [];
 
+  const validCapacity =
+    isStudyGroup && Number.isInteger(capacity) && (capacity as number) > 0
+      ? (capacity as number)
+      : null;
+
   const project = await prisma.project.create({
     data: {
       title,
@@ -48,6 +63,8 @@ export async function POST(request: Request) {
       tags: Array.isArray(tags) ? tags : [],
       neededRoles: validNeededRoles,
       websiteUrl: websiteUrl?.trim() || null,
+      isStudyGroup: Boolean(isStudyGroup),
+      capacity: validCapacity,
       members: {
         create: {
           userId: session.user.id,

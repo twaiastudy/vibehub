@@ -17,6 +17,7 @@ const REASON_LABEL: Record<string, string> = {
   REFERRAL_FIRST_PROJECT: "受邀者完成第一個專案",
   REFERRAL_FIRST_COURSE: "受邀者完成第一次報名課程",
   COURSE_ENROLLMENT: "報名課程",
+  STUDY_GROUP_COMPLETED: "讀書會結案獎勵",
 };
 
 const REFERRAL_STAGE_LABEL: Record<string, string> = {
@@ -32,7 +33,7 @@ export default async function MePage() {
   }
 
   const prisma = await getPrisma();
-  const [user, ledgerEntries, referredUsers, host] = await Promise.all([
+  const [user, ledgerEntries, referredUsers, enrollments, host] = await Promise.all([
     prisma.user.findUnique({ where: { id: session.user.id } }),
     prisma.pointsLedgerEntry.findMany({
       where: { userId: session.user.id },
@@ -41,6 +42,11 @@ export default async function MePage() {
     prisma.user.findMany({
       where: { referredById: session.user.id },
       select: { id: true, name: true },
+    }),
+    prisma.enrollment.findMany({
+      where: { userId: session.user.id },
+      orderBy: { enrolledAt: "desc" },
+      include: { course: { select: { id: true, title: true, isFoundational: true } } },
     }),
     headers().then((h) => h.get("host")),
   ]);
@@ -99,6 +105,34 @@ export default async function MePage() {
           </ul>
         </section>
       )}
+
+      <section className="mt-8">
+        <h2 className="text-sm font-medium opacity-70">我報名的課程({enrollments.length})</h2>
+        {enrollments.length === 0 ? (
+          <p className="mt-2 text-sm opacity-60">
+            還沒有報名任何課程,<Link href="/courses" className="underline">去看看課程</Link>吧。
+          </p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {enrollments.map((enrollment) => (
+              <li
+                key={enrollment.id}
+                className="flex items-center justify-between rounded border border-black/10 px-3 py-2 text-sm dark:border-white/10"
+              >
+                <Link href={`/courses/${enrollment.course.id}`} className="hover:underline">
+                  {enrollment.course.title}
+                  {enrollment.course.isFoundational && (
+                    <span className="ml-1.5 rounded-full border border-[var(--accent)]/40 px-1.5 py-0.5 text-xs text-[var(--accent)]">
+                      基礎課程
+                    </span>
+                  )}
+                </Link>
+                <span className="opacity-60">花費 {enrollment.pointsPaid} VP</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <h2 className="mt-8 text-sm font-medium opacity-70">點數紀錄</h2>
       {ledgerEntries.length === 0 ? (

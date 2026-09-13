@@ -13,6 +13,8 @@ export default function NewProjectPage() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [neededRoles, setNeededRoles] = useState<string[]>([]);
   const [ownerExpertise, setOwnerExpertise] = useState("");
+  const [isStudyGroup, setIsStudyGroup] = useState(false);
+  const [capacity, setCapacity] = useState("8");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -40,6 +42,8 @@ export default function NewProjectPage() {
         neededRoles,
         ownerExpertise,
         websiteUrl,
+        isStudyGroup,
+        capacity: isStudyGroup ? Number(capacity) : undefined,
       }),
     });
 
@@ -124,6 +128,31 @@ export default function NewProjectPage() {
               </label>
             ))}
           </div>
+        </div>
+        <div className="flex flex-col gap-2 rounded border border-black/10 p-3 dark:border-white/10">
+          <label className="flex items-center gap-1.5 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={isStudyGroup}
+              onChange={(e) => setIsStudyGroup(e.target.checked)}
+            />
+            這是讀書會 / 學習小隊(而不是一般專案需求)
+          </label>
+          <p className="text-xs opacity-60">
+            每週一個主題,一起實作、分享 Demo、Code Review,結案時發起人可獲得點數獎勵。
+          </p>
+          {isStudyGroup && (
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium">人數上限</span>
+              <input
+                type="number"
+                min={1}
+                className="w-24 rounded border border-black/20 px-3 py-2 dark:border-white/20"
+                value={capacity}
+                onChange={(e) => setCapacity(e.target.value)}
+              />
+            </label>
+          )}
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button

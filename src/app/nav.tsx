@@ -13,7 +13,7 @@ export function Nav() {
       </Link>
       <div className="flex items-center gap-4 text-sm">
         <Link href="/projects">需求廣場</Link>
-        <Link href="/projects/new">發布需求</Link>
+        <Link href="/projects?studyGroup=1">讀書會</Link>
         <Link href="/courses">課程</Link>
         <Link href="/leaderboard">排行榜</Link>
         {session ? (

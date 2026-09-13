@@ -75,6 +75,7 @@ model User {
   ledgerEntries  PointsLedgerEntry[]
   coursesTaught  Course[]
   enrollments    Enrollment[]
+  courseComments CourseComment[]
 }
 
 enum ProjectStatus {
@@ -101,7 +102,16 @@ model Project {
   // pre-build proposals.
   websiteUrl  String?
   status      ProjectStatus @default(OPEN)
-  createdAt   DateTime      @default(now())
+  // A study group ("學習小隊") is deliberately just a Project with these
+  // two extra fields, not a separate model — it reuses members/roles,
+  // Suggestion+Comment as its weekly-sharing discussion, and ProjectUpdate
+  // as the leader's progress broadcasts. `capacity` caps membership
+  // (join is rejected once full); closing a study-group project pays the
+  // OWNER(s) a STUDY_GROUP_COMPLETED bonus (src/lib/points.ts callers) on
+  // top of whatever referral milestones a normal close would trigger.
+  isStudyGroup Boolean @default(false)
+  capacity     Int?
+  createdAt    DateTime      @default(now())
 
   members     ProjectMember[]
   suggestions Suggestion[]
@@ -207,6 +217,22 @@ model Course {
 
   instructor  User         @relation(fields: [instructorId], references: [id], onDelete: Cascade)
   enrollments Enrollment[]
+  comments    CourseComment[]
+}
+
+// Open Q&A under a course, same "anyone can post" pattern as Comment on a
+// Suggestion — kept as its own model rather than made polymorphic with
+// Comment, since Comment.suggestionId is a required FK and a nullable
+// dual-parent column is more fragile than one small duplicate model.
+model CourseComment {
+  id        String   @id @default(cuid())
+  courseId  String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 }
 
 model Enrollment {
@@ -243,6 +269,9 @@ enum LedgerReason {
   // the first "spend" reason in the ledger — everything before this was
   // earn-only.
   COURSE_ENROLLMENT
+  // Paid to a study group's OWNER(s) when they close it (Project.isStudyGroup)
+  // — see checkStudyGroupCompletion callers in src/app/api/**/close routes.
+  STUDY_GROUP_COMPLETED
 }
 
 model PointsLedgerEntry {

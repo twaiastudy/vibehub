@@ -17,6 +17,16 @@ const FEATURES = [
     body: "認領角色、送出建議、幫忙測試,把想法真的做出來,不是紙上談兵。",
   },
   {
+    icon: "📚",
+    title: "上課,再開課",
+    body: "新手禮包剛好能報名兩堂基礎課;累積 VP 達 Mentor 門檻後,換你開課、賺點數。",
+  },
+  {
+    icon: "👥",
+    title: "讀書會 / 學習小隊",
+    body: "6～10 人一組,每週一個主題、一起實作、分享 Demo,結案發起人可獲得點數獎勵。",
+  },
+  {
     icon: "🎓",
     title: "累積作品與聲望",
     body: "每個貢獻都算進 VP 與 Vibe Passport,做出成績之後,換你帶新的人。",
@@ -24,7 +34,7 @@ const FEATURES = [
   {
     icon: "🤝",
     title: "人才與商機媒合",
-    body: "鼓勵開課、辦讀書會等教學活動,也透過 PM、業務等角色促成真實的人才與商機媒合。",
+    body: "透過 PM、業務等角色標記,把教學與實作的成果連結到真實的人才與商機媒合。",
   },
 ];
 
@@ -71,6 +81,18 @@ export default function LandingPage() {
             className="rounded-lg border border-black/15 px-5 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
           >
             發布你的需求
+          </Link>
+          <Link
+            href="/courses"
+            className="rounded-lg border border-black/15 px-5 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          >
+            看課程
+          </Link>
+          <Link
+            href="/projects?studyGroup=1"
+            className="rounded-lg border border-black/15 px-5 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          >
+            找讀書會
           </Link>
         </div>
       </section>

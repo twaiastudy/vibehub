@@ -5,9 +5,22 @@ import { getPrisma } from "@/lib/prisma";
 // Prices and enrollment counts change over time.
 export const dynamic = "force-dynamic";
 
-export default async function CoursesPage() {
+export default async function CoursesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
   const prisma = await getPrisma();
   const courses = await prisma.course.findMany({
+    where: q
+      ? {
+          OR: [
+            { title: { contains: q } },
+            { description: { contains: q } },
+          ],
+        }
+      : undefined,
     orderBy: { createdAt: "desc" },
     include: { instructor: true, _count: { select: { enrollments: true } } },
   });
@@ -24,7 +37,35 @@ export default async function CoursesPage() {
         </Link>
       </div>
 
-      {courses.length === 0 && (
+      <form className="mt-6 flex gap-2">
+        <input
+          type="text"
+          name="q"
+          defaultValue={q ?? ""}
+          placeholder="搜尋課程標題或描述…"
+          className="flex-1 rounded border border-black/20 px-3 py-2 text-sm dark:border-white/20"
+        />
+        <button
+          type="submit"
+          className="rounded bg-black px-4 py-2 text-sm text-white dark:bg-white dark:text-black"
+        >
+          搜尋
+        </button>
+      </form>
+
+      {q && (
+        <p className="mt-4 text-sm opacity-60">
+          「{q}」找到 {courses.length} 筆
+          {courses.length === 0 && (
+            <>
+              {" "}
+              — <Link href="/courses" className="underline">清除搜尋</Link>
+            </>
+          )}
+        </p>
+      )}
+
+      {courses.length === 0 && !q && (
         <p className="mt-6 text-sm opacity-70">還沒有課程,達到 Mentor 門檻的人可以開第一堂課。</p>
       )}
 

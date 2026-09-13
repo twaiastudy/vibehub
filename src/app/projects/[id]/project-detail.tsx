@@ -42,6 +42,8 @@ type Project = {
   neededRoles: string[];
   websiteUrl: string | null;
   status: "OPEN" | "IN_PROGRESS" | "CLOSED";
+  isStudyGroup: boolean;
+  capacity: number | null;
   members: Member[];
   suggestions: Suggestion[];
   updates: Update[];
@@ -69,13 +71,21 @@ export function ProjectDetail({
   const [joinRole, setJoinRole] = useState<(typeof JOINABLE_ROLES)[number]>(
     (openRoles[0] as (typeof JOINABLE_ROLES)[number]) ?? "DEVELOPER",
   );
+  const isFull = Boolean(
+    project.isStudyGroup && project.capacity && project.members.length >= project.capacity,
+  );
 
   async function handleJoin() {
-    await fetch(`/api/projects/${project.id}/join`, {
+    const response = await fetch(`/api/projects/${project.id}/join`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role: joinRole, expertise: joinExpertise }),
     });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      setError(body.error ?? "加入失敗");
+      return;
+    }
     router.refresh();
   }
 
@@ -114,7 +124,14 @@ export function ProjectDetail({
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <div className="flex items-start justify-between gap-4">
-        <h1 className="text-2xl font-semibold">{project.title}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold">{project.title}</h1>
+          {project.isStudyGroup && (
+            <span className="rounded-full bg-[var(--accent)]/15 px-2 py-0.5 text-xs font-medium text-[var(--accent)]">
+              📚 讀書會{project.capacity ? ` ${project.members.length}/${project.capacity}` : ""}
+            </span>
+          )}
+        </div>
         {isOwner && project.status !== "CLOSED" && (
           <button
             onClick={handleClose}
@@ -183,7 +200,10 @@ export function ProjectDetail({
             </li>
           ))}
         </ul>
-        {isSignedIn && !isMember && (
+        {isSignedIn && !isMember && isFull && (
+          <p className="mt-3 text-sm text-red-600">這個讀書會已經額滿了。</p>
+        )}
+        {isSignedIn && !isMember && !isFull && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <select
               value={joinRole}
@@ -205,6 +225,7 @@ export function ProjectDetail({
             <button onClick={handleJoin} className="rounded border border-black/20 px-3 py-1 text-sm dark:border-white/20">
               以此身份加入
             </button>
+            {error && <p className="w-full text-sm text-red-600">{error}</p>}
           </div>
         )}
       </section>

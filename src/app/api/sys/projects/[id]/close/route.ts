@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getAdminUserId } from "@/lib/admin";
 import { getPrisma } from "@/lib/prisma";
 import { checkFirstProjectReferral } from "@/lib/referrals";
+import { checkStudyGroupCompletion } from "@/lib/study-groups";
 
 // Same effect as the owner-gated close in /api/projects/[id]/close, but
 // callable by an admin on anyone's behalf — still triggers the "first
@@ -29,6 +30,7 @@ export async function POST(
     select: { userId: true },
   });
   await Promise.all(owners.map((owner) => checkFirstProjectReferral(owner.userId)));
+  await checkStudyGroupCompletion(id);
 
   return NextResponse.json(project);
 }
