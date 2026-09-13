@@ -1,0 +1,215 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --- NextAuth required models ---
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// --- Domain models ---
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  pointsBalance Int       @default(0)
+  // Not an env-var allowlist — deliberately a DB column so an admin can
+  // grant admin to someone else from the /sys UI itself.
+  isAdmin       Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  // Whoever's invite link this user signed up through. A user's own id
+  // doubles as their shareable referral code (see /invite/[id]), so no
+  // separate code field is needed.
+  referredById String?
+  referredBy   User?  @relation("Referrals", fields: [referredById], references: [id])
+  referrals    User[] @relation("Referrals")
+
+  accounts       Account[]
+  sessions       Session[]
+  memberships    ProjectMember[]
+  suggestions    Suggestion[]
+  comments       Comment[]
+  projectUpdates ProjectUpdate[]
+  ledgerEntries  PointsLedgerEntry[]
+}
+
+enum ProjectStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+// A project can have many participants (not just a single owner),
+// so membership is modeled as its own join table with a role.
+model Project {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  // SQLite has no native array type, so tags are stored as a JSON array.
+  tags Json @default("[]")
+  // The ProjectRole values (as strings) the proposer is recruiting for —
+  // g0v Jothon-style "someone proposes a need, people who match form a
+  // team" instead of members self-selecting any role with no signal of
+  // what's actually wanted.
+  neededRoles Json          @default("[]")
+  // The actual live product, if one already exists — VibeHub is often
+  // where an already-shipped side project asks for help, not just
+  // pre-build proposals.
+  websiteUrl  String?
+  status      ProjectStatus @default(OPEN)
+  createdAt   DateTime      @default(now())
+
+  members     ProjectMember[]
+  suggestions Suggestion[]
+  updates     ProjectUpdate[]
+}
+
+// The functional role someone takes on a project, not a hierarchy level —
+// a project needs its requester, developer(s), tester(s), designer,
+// domain expert, PM/business lead, and each shows up distinctly here
+// rather than everyone being a generic "CONTRIBUTOR".
+enum ProjectRole {
+  OWNER
+  DEVELOPER
+  TESTER
+  DESIGNER
+  DOMAIN_EXPERT
+  PROJECT_MANAGER
+  BUSINESS_MANAGER
+  OTHER
+}
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectRole @default(DEVELOPER)
+  // Free-text self-description ("全端工程師,8年經驗" / "資深採購承辦人員"),
+  // one level more specific than `role` — filled in at creation (the
+  // proposer) or join time (any contributor), never required.
+  expertise String?
+  joinedAt  DateTime    @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+enum SuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Suggestion {
+  id        String           @id @default(cuid())
+  projectId String
+  authorId  String
+  content   String
+  status    SuggestionStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments Comment[]
+}
+
+// Open discussion under a suggestion — any signed-in person can post, not
+// just the project owner, so domain experts and other contributors can
+// weigh in on each other's suggestions rather than only the owner replying.
+model Comment {
+  id           String   @id @default(cuid())
+  suggestionId String
+  authorId     String
+  content      String
+  createdAt    DateTime @default(now())
+
+  suggestion Suggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+// Owner-posted progress broadcasts to the whole project (e.g. "fixed the
+// three things you reported, here's what changed"), distinct from replying
+// to one suggestion.
+model ProjectUpdate {
+  id        String   @id @default(cuid())
+  projectId String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+// Points are append-only ledger entries (never a mutable balance column)
+// so every award/deduction stays auditable and concurrency-safe.
+enum LedgerReason {
+  SUGGESTION_ACCEPTED
+  MANUAL_ADJUSTMENT
+  // One-time, deliberately small so it's not worth farming with throwaway
+  // Google accounts — see the createUser event in src/lib/auth.ts.
+  WELCOME_BONUS
+  // Staged referral rewards: paid to the inviter, never the invitee, and
+  // each stage fires at most once per (inviter, invitee) pair — see
+  // src/lib/referrals.ts. Rewarding activity instead of the invite itself
+  // is what keeps this resistant to throwaway-account farming.
+  REFERRAL_SIGNUP
+  REFERRAL_FIRST_TASK
+  REFERRAL_FIRST_PROJECT
+}
+
+model PointsLedgerEntry {
+  id        String       @id @default(cuid())
+  userId    String
+  amount    Int
+  reason    LedgerReason
+  refType   String?
+  refId     String?
+  createdAt DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
